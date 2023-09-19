@@ -32,7 +32,7 @@ use libp2p::{
     dns::TokioDnsConfig,
 };
 use log::{error, info};
-use tokio::runtime::{Runtime, Handle};
+use tokio_stream::StreamExt;
 use std::{collections::hash_map::DefaultHasher, str::FromStr};
 use std::error::Error;
 use std::hash::{Hash, Hasher};
@@ -60,31 +60,19 @@ async fn main() -> Result<(), Box<dyn Error>> {
     println!("Local peer id: {local_peer_id}");
     
     let stream_protocol = StreamProtocol::new("/wormhole/mainnet/2");
-    let mut cfg = KademliaConfig::default().set_protocol_names(vec![stream_protocol]).to_owned();
+    let mut cfg = KademliaConfig::default()
+    .set_protocol_names(vec![stream_protocol])
+    .to_owned();
 
     cfg.set_query_timeout(Duration::from_secs(60));
     let store = MemoryStore::new(local_peer_id);
     let mut kad_behaviour = Kademlia::with_config(local_peer_id, store, cfg);
     kad_behaviour.set_mode(Some(libp2p::kad::Mode::Server));
     for p in bootstrappers.0.iter(){
-        //changed from quic to quic-v1
         kad_behaviour.add_address(&p, MAINNET_BOOTSTRAP_MULTIADDR.parse()?);
     }
     kad_behaviour.bootstrap()?;
-
-    // let identify = identify::Behaviour::new(identify::Config::new(
-    //     "/wormhole/mainnet/2".into(),
-    //     id_keys.public(),
-    // ));
-    // // Set up an encrypted DNS-enabled TCP Transport over the yamux protocol.
- 
-    // let quic_transport = quic::async_std::Transport::new(quic::Config::new(&id_keys));
-    // let transport = OrTransport::new(quic_transport, tcp_transport)
-    //     .map(|either_output, _| match either_output {
-    //         Either::Left((peer_id, muxer)) => (peer_id, StreamMuxerBox::new(muxer)),
-    //         Either::Right((peer_id, muxer)) => (peer_id, StreamMuxerBox::new(muxer)),
-    //     })
-    //     .boxed();
+    
     let transport = {
         let mut quic_config = quic::Config::new(&id_keys);
         quic_config.support_draft_29 = true;
@@ -104,7 +92,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let gossipsub_config = gossipsub::ConfigBuilder::default()
         .heartbeat_interval(Duration::from_secs(1)) // This is set to aid debugging by not cluttering the log space
         .validation_mode(gossipsub::ValidationMode::Strict) // This sets the kind of message validation. The default is Strict (enforce message signing)
-        // .protocol_id_prefix("/wormhole/mainnet/2")
         .message_id_fn(message_id_fn) // content-address messages. No two messages of the same content will be propagated.
         .build()
         .expect("Valid config");
@@ -120,9 +107,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // subscribes to our topic
     gossipsub.subscribe(&topic)?;
-    // let mut mdns_confg = mdns::Config::default();
-    // mdns_confg.enable_ipv6 = true;
-    // let mdns = mdns::async_io::Behaviour::new(mdns_confg, local_peer_id)?;
+
     // Create a Swarm to manage peers and events
     let mut swarm = {
         let mut behaviour = MyBehaviour { 
@@ -130,18 +115,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
             kad: kad_behaviour, 
         };
         behaviour.gossipsub.subscribe(&topic)?;
-        SwarmBuilder::with_tokio_executor(transport, behaviour, local_peer_id).build()
+        SwarmBuilder::with_tokio_executor(transport, behaviour, local_peer_id)
+        .build()
     };
     // swarm.behaviour_mut().gossipsub.subscribe(&topic)?;
-    // Read full lines from stdin
-    // let mut stdin = io::BufReader::new(io::stdin()).lines().fuse();
 
     // Listen on all interfaces and whatever port the OS assigns
-    
     swarm.listen_on("/ip4/0.0.0.0/udp/8999/quic".parse()?)?;
-    swarm.listen_on("/ip6/::/udp/8999/quic".parse()?)?;
-    swarm.behaviour_mut().gossipsub.subscribe(&topic)?;
-    
+    swarm.listen_on("/ip6/::/udp/8999/quic".parse()?)?;    
     // println!("reaches here atleast");
     // 
     // println!("bootstrap ids: {:?}", bootstrappers.0);
@@ -169,6 +150,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // };
     // let bootstrappers = bootstrap_addrs(MAINNET_BOOTSTRAP_ADDRS, &local_peer_id);
   
+    // swarm.dial("12D3KooWQp644DK27fd3d4Km3jr7gHiuJJ5ZGmy8hH4py7fP4FP7".parse::<PeerId>()?)?;
+    // swarm.dial("12D3KooWNQ9tVrcb64tw6bNs2CaNrUGPM7yRrKvBBheQ5yCyPHKC".parse::<PeerId>()?)?;
     let successful_connections = connect_peers(bootstrappers.0, &mut swarm)?;
     // let success_connections_v2 = connect_peers_v2(local_peer_id, bootstrappers.0, &mut swarm)?;
     // let ninfo =  swarm.network_info();
@@ -184,7 +167,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // Kick it off
     loop {
-        select! {
+        tokio::select! {
             // line = stdin.select_next_some() => {
             //     if let Err(e) = swarm
             //         .behaviour_mut().gossipsub
@@ -214,9 +197,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     println!("Addresses = {:?}", addresses);
 
                 },
-                // SwarmEvent::Behaviour(MyBehaviourEvent::Kad(kad::KademliaEvent::OutboundQueryProgressed { id, result, stats, step })) => {
-                //     println!("QUERY RESULT?: {:?}", result);
-                // },
+                SwarmEvent::Behaviour(MyBehaviourEvent::Kad(KademliaEvent::OutboundQueryProgressed { id, result, stats, step })) => {
+                    println!("QUERY RESULT?: {:?}", result);
+                },
                 // SwarmEvent::Behaviour(MyBehaviourEvent::Mdns(mdns::Event::Discovered(list))) => {
                 //     for (peer_id, _multiaddr) in list {
                 //         println!("mDNS discover peer has expired: {peer_id}");
