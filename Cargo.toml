@@ -1,0 +1,15 @@
+[package]
+name = "hopchat"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+async-std = { version = "1.12", features = ["attributes"] }
+async-trait = "0.1"
+env_logger = "0.10.0"
+futures = "0.3.28"
+tokio = {version = "1.32.0", features = ["full"]}
+libp2p = { version = "0.52.2", features = ["tokio", "gossipsub", "mdns", "macros", "quic","kad", "dns"] }
+log = "0.4.20"
