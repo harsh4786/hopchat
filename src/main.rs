@@ -20,13 +20,13 @@
 
 // #![doc = include_str!("../README.md")]
 
-use futures::{executor::block_on, prelude::*, select};
+use futures::prelude::*;
 use libp2p::{
     core::muxing::StreamMuxerBox,
     dns::TokioDnsConfig,
+    ping,
     gossipsub, identity,
-    kad::{store::MemoryStore, Kademlia, KademliaConfig, KademliaEvent},
-    mdns, quic,
+    kad::{store::MemoryStore, Kademlia, KademliaConfig, KademliaEvent}, quic,
     swarm::{
         dial_opts::{DialOpts, PeerCondition},
         NetworkBehaviour,
@@ -46,9 +46,10 @@ use tokio_stream::{Stream, StreamExt};
 pub struct MyBehaviour {
     gossipsub: gossipsub::Behaviour,
     kad: libp2p::kad::Kademlia<MemoryStore>,
+    ping: ping::Behaviour,
     // mdns: mdns::async_io::Behaviour,
 }
-pub const MAINNET_BOOTSTRAP_ADDRS: &str = "/dns4/wormhole-mainnet-v2-bootstrap.certus.one/udp/8999/quic/p2p/12D3KooWQp644DK27fd3d4Km3jr7gHiuJJ5ZGmy8hH4py7fP4FP7,/dns4/wormhole-mainnet-v2-bootstrap.certus.one/udp/8999/quic/p2p/12D3KooWNQ9tVrcb64tw6bNs2CaNrUGPM7yRrKvBBheQ5yCyPHKC";
+pub const MAINNET_BOOTSTRAP_ADDRS: &str = "/dns4/wormhole-mainnet-v2-bootstrap.certus.one/udp/8999/quic/p2p/12D3KooWQp644DK27fd3d4Km3jr7gHiuJJ5ZGmy8hH4py7fP4FP7";
 pub const TESTNET_BOOTSTRAP_ADDRS: &str = "/dns4/wormhole-testnet-v2-bootstrap.certus.one/udp/8999/quic/p2p/12D3KooWAkB9ynDur1Jtoa97LBUp8RXdhzS5uHgAfdTquJbrbN7i";
 pub const MAINNET_BOOTSTRAP_MULTIADDR: &str =
     "/dns4/wormhole-mainnet-v2-bootstrap.certus.one/udp/8999/quic";
@@ -113,6 +114,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         gossipsub_config,
     )
     .expect("Correct configuration");
+
+    let mut ping_behaviour =  ping::Behaviour::default();
     // Create a Gossipsub topic
     let topic = gossipsub::IdentTopic::new(format!("{}/{}", "/wormhole/mainnet/2", "broadcast"));
 
@@ -124,6 +127,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let mut behaviour = MyBehaviour {
             gossipsub,
             kad: kad_behaviour,
+            ping: ping_behaviour,
         };
         behaviour.gossipsub.subscribe(&topic)?;
         SwarmBuilder::with_tokio_executor(transport, behaviour, local_peer_id).build()
@@ -168,10 +172,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // let successful_connections = connect_peers(bootstrappers.0, &mut swarm)?;
     // let success_connections_v2 = connect_peers_v2(local_peer_id, bootstrappers.0, &mut swarm)?;
     // let ninfo =  swarm.network_info();
-    // println!("Network INFO: {:?}", ninfo);
-    // // if swarm.dial(peer_id).is_ok(){
-    // //     println!("dialed to wormhole");
-    // // }
     // println!("IT DOES CONNECT TO THE MAINNET BOOTSTRAP PEERS: {}", successful_connections);
     // println!("IT DOES CONNECT TO THE MAINNET BOOTSTRAP PEERS V2: {}", success_connections_v2);
 
@@ -180,44 +180,32 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Kick it off
     loop {
         tokio::select! {
-            // line = stdin.select_next_some() => {
-            //     if let Err(e) = swarm
-            //         .behaviour_mut().gossipsub
-            //         .publish(topic.clone(), line.expect("Stdin not to close").as_bytes()) {
-            //         println!("Publish error: {e:?}");
-            //     }
-            // },
             event = swarm.select_next_some() => match event {
 
-                SwarmEvent::Dialing{peer_id, connection_id} => {
-                    print!("Dialing TOOO: {:?}",peer_id )
-                },
-                SwarmEvent::OutgoingConnectionError{peer_id,error, ..} => {
-                    println!("FAILED PEER ID: {:?}", peer_id);
-                    println!("PROLLY ERRORRED!: {:?}", error );
-                }
-                SwarmEvent::ConnectionEstablished{peer_id, connection_id, endpoint, num_established, concurrent_dial_errors, established_in } => {
-                    println!("DID IT HAPPEN ACTUALY?:  {:?}, Connected ID: {:?}", num_established, peer_id);
-                    println!("or maybe NOOTTT? {:?}", concurrent_dial_errors);
-                },
-                SwarmEvent::Behaviour(MyBehaviourEvent::Kad(KademliaEvent::RoutingUpdated { peer, is_new_peer, addresses, bucket_range, old_peer })) => {
-                    // for addr in addresses.iter(){
-                    //     println!("Kademlia added a new peer: {addr}");
-                    // }
-                    println!("Any peers?: {:?}", peer);
-                    println!("IS NEW PEER?: {:?}", is_new_peer);
-                    println!("Addresses = {:?}", addresses);
-
-                },
-                SwarmEvent::Behaviour(MyBehaviourEvent::Kad(KademliaEvent::OutboundQueryProgressed { id, result, stats, step })) => {
-                    println!("QUERY RESULT?: {:?}", result);
-                },
-                // SwarmEvent::Behaviour(MyBehaviourEvent::Mdns(mdns::Event::Discovered(list))) => {
-                //     for (peer_id, _multiaddr) in list {
-                //         println!("mDNS discover peer has expired: {peer_id}");
-                //         swarm.behaviour_mut().gossipsub.remove_explicit_peer(&peer_id);
-                //     }
+                // SwarmEvent::Dialing{peer_id, connection_id} => {
+                //     print!("Dialing TOOO: {:?}",peer_id )
                 // },
+                // SwarmEvent::OutgoingConnectionError{peer_id,error, ..} => {
+                //     println!("FAILED PEER ID: {:?}", peer_id);
+                //     println!("PROLLY ERRORRED!: {:?}", error );
+                // }
+                // SwarmEvent::ConnectionEstablished{peer_id, connection_id, endpoint, num_established, concurrent_dial_errors, established_in } => {
+                //     println!("DID IT HAPPEN ACTUALY?:  {:?}, Connected ID: {:?}", num_established, peer_id);
+                //     println!("or maybe NOOTTT? {:?}", concurrent_dial_errors);
+                // },
+                // SwarmEvent::Behaviour(MyBehaviourEvent::Kad(KademliaEvent::RoutingUpdated { peer, is_new_peer, addresses, bucket_range, old_peer })) => {
+                //     for addr in addresses.iter(){
+                //         println!("Kademlia added a new peer: {addr}");
+                //     }
+                //     println!("Any peers?: {:?}", peer);
+                //     println!("IS NEW PEER?: {:?}", is_new_peer);
+                //     println!("Addresses = {:?}", addresses);
+
+                // },
+                // SwarmEvent::Behaviour(MyBehaviourEvent::Kad(KademliaEvent::OutboundQueryProgressed { id, result, stats, step })) => {
+                //     println!("QUERY RESULT?: {:?}", result);
+                // },
+              
                 SwarmEvent::Behaviour(MyBehaviourEvent::Gossipsub(gossipsub::Event::Message {
                     propagation_source: peer_id,
                     message_id: id,
@@ -233,6 +221,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     "Subscribed to: '{}' from id: {peer_id}",
                     topic.to_string(),
                 ),
+                SwarmEvent::Behaviour(MyBehaviourEvent::Ping(event)) =>{
+                    println!("still connected to: {:?}", event.peer);
+                    println!{"ping status?: {:?}", event.result};
+                },
                 SwarmEvent::NewListenAddr { address, .. } => {
                     println!("Local node is listening on {address}");
                 }
@@ -241,6 +233,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
             }
         }
     }
+
+    
 }
 
 pub fn bootstrap_addrs(bootstrap_peers: &str, self_id: &PeerId) -> (Vec<PeerId>, bool) {
