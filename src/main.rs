@@ -40,7 +40,6 @@ use std::hash::{Hash, Hasher};
 use std::time::Duration;
 use std::{collections::hash_map::DefaultHasher, str::FromStr};
 use tokio_stream::{Stream, StreamExt};
-
 // We create a custom network behaviour that combines Gossipsub and Mdns.
 #[derive(NetworkBehaviour)]
 pub struct MyBehaviour {
@@ -115,7 +114,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     )
     .expect("Correct configuration");
 
-    let mut ping_behaviour =  ping::Behaviour::default();
+    let ping_behaviour =  ping::Behaviour::default();
     // Create a Gossipsub topic
     let topic = gossipsub::IdentTopic::new(format!("{}/{}", "/wormhole/mainnet/2", "broadcast"));
 
