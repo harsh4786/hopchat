@@ -181,29 +181,29 @@ async fn main() -> Result<(), Box<dyn Error>> {
         tokio::select! {
             event = swarm.select_next_some() => match event {
 
-                // SwarmEvent::Dialing{peer_id, connection_id} => {
-                //     print!("Dialing TOOO: {:?}",peer_id )
-                // },
-                // SwarmEvent::OutgoingConnectionError{peer_id,error, ..} => {
-                //     println!("FAILED PEER ID: {:?}", peer_id);
-                //     println!("PROLLY ERRORRED!: {:?}", error );
-                // }
-                // SwarmEvent::ConnectionEstablished{peer_id, connection_id, endpoint, num_established, concurrent_dial_errors, established_in } => {
-                //     println!("DID IT HAPPEN ACTUALY?:  {:?}, Connected ID: {:?}", num_established, peer_id);
-                //     println!("or maybe NOOTTT? {:?}", concurrent_dial_errors);
-                // },
-                // SwarmEvent::Behaviour(MyBehaviourEvent::Kad(KademliaEvent::RoutingUpdated { peer, is_new_peer, addresses, bucket_range, old_peer })) => {
-                //     for addr in addresses.iter(){
-                //         println!("Kademlia added a new peer: {addr}");
-                //     }
-                //     println!("Any peers?: {:?}", peer);
-                //     println!("IS NEW PEER?: {:?}", is_new_peer);
-                //     println!("Addresses = {:?}", addresses);
+                SwarmEvent::Dialing{peer_id, connection_id} => {
+                    print!("Dialing TOOO: {:?}",peer_id )
+                },
+                SwarmEvent::OutgoingConnectionError{peer_id,error, ..} => {
+                    println!("FAILED PEER ID: {:?}", peer_id);
+                    println!("PROLLY ERRORRED!: {:?}", error );
+                }
+                SwarmEvent::ConnectionEstablished{peer_id, connection_id, endpoint, num_established, concurrent_dial_errors, established_in } => {
+                    println!("DID IT HAPPEN ACTUALY?:  {:?}, Connected ID: {:?}", num_established, peer_id);
+                    println!("or maybe NOOTTT? {:?}", concurrent_dial_errors);
+                },
+                SwarmEvent::Behaviour(MyBehaviourEvent::Kad(KademliaEvent::RoutingUpdated { peer, is_new_peer, addresses, bucket_range, old_peer })) => {
+                    for addr in addresses.iter(){
+                        println!("Kademlia added a new peer: {addr}");
+                    }
+                    println!("Any peers?: {:?}", peer);
+                    println!("IS NEW PEER?: {:?}", is_new_peer);
+                    println!("Addresses = {:?}", addresses);
 
-                // },
-                // SwarmEvent::Behaviour(MyBehaviourEvent::Kad(KademliaEvent::OutboundQueryProgressed { id, result, stats, step })) => {
-                //     println!("QUERY RESULT?: {:?}", result);
-                // },
+                },
+                SwarmEvent::Behaviour(MyBehaviourEvent::Kad(KademliaEvent::OutboundQueryProgressed { id, result, stats, step })) => {
+                    println!("QUERY RESULT?: {:?}", result);
+                },
               
                 SwarmEvent::Behaviour(MyBehaviourEvent::Gossipsub(gossipsub::Event::Message {
                     propagation_source: peer_id,
