@@ -131,50 +131,17 @@ async fn main() -> Result<(), Box<dyn Error>> {
         behaviour.gossipsub.subscribe(&topic)?;
         SwarmBuilder::with_tokio_executor(transport, behaviour, local_peer_id).build()
     };
-    // swarm.behaviour_mut().gossipsub.subscribe(&topic)?;
 
     // Listen on all interfaces and whatever port the OS assigns
     swarm.listen_on("/ip4/0.0.0.0/udp/8999/quic".parse()?)?;
     swarm.listen_on("/ip6/::/udp/8999/quic".parse()?)?;
-    // println!("reaches here atleast");
-    //
-    // println!("bootstrap ids: {:?}", bootstrappers.0);
+
     if bootstrappers.1 {
         println!("We're a bootstrap node lol");
     }
-    // let dial_addr: Multiaddr = MAINNET_BOOTSTRAP_MULTIADDR.parse().unwrap();
-    // for p in bootstrappers.0  {
-    //     swarm.dial(p)?
-    // }
-    // let ma = Multiaddr::from_str(BOOTSTRAP_ADDRS)?;
-    // let peer_id =  ma.iter().find_map(|proto| {
-    //     if let libp2p::multiaddr::Protocol::P2p(hash) = proto {
-    //         Some(PeerId::from_multihash(hash.clone().into()))
-    //     } else {
-    //         None
-    //     }}).unwrap().unwrap();
-
-    // println!("peer: {:?}", peer_id);
-    // {
-    //     Some(id) => id,
-    //     None => {
-    //         error!("Invalid bootstrap address: {}", addr_str);
-    //     }
-    // };
-    // let bootstrappers = bootstrap_addrs(MAINNET_BOOTSTRAP_ADDRS, &local_peer_id);
-
-    // swarm.dial("12D3KooWQp644DK27fd3d4Km3jr7gHiuJJ5ZGmy8hH4py7fP4FP7".parse::<PeerId>()?)?;
-    // swarm.dial("12D3KooWNQ9tVrcb64tw6bNs2CaNrUGPM7yRrKvBBheQ5yCyPHKC".parse::<PeerId>()?)?;
 
     let succ = connect(bootstrappers.0, &mut swarm)?;
     println!("success new: {:?}", succ);
-    // let successful_connections = connect_peers(bootstrappers.0, &mut swarm)?;
-    // let success_connections_v2 = connect_peers_v2(local_peer_id, bootstrappers.0, &mut swarm)?;
-    // let ninfo =  swarm.network_info();
-    // println!("IT DOES CONNECT TO THE MAINNET BOOTSTRAP PEERS: {}", successful_connections);
-    // println!("IT DOES CONNECT TO THE MAINNET BOOTSTRAP PEERS V2: {}", success_connections_v2);
-
-    // println!("Enter messages via STDIN and they will be sent to connected peers using Gossipsub");
 
     // Kick it off
     loop {
