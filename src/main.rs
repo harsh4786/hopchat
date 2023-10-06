@@ -77,6 +77,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
     kad_behaviour.bootstrap()?;
 
+    let mut bootstrap_interval = tokio::time::interval(Duration::from_secs(2)); 
+
     let mut quic_config = quic::Config::new(&id_keys);
     quic_config.support_draft_29 = true;
     let transport = {
@@ -98,11 +100,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
         message.data.hash(&mut s);
         gossipsub::MessageId::from(s.finish().to_string())
     };
-
+    
     // Set a custom gossipsub configuration
     let gossipsub_config = gossipsub::ConfigBuilder::default()
         .heartbeat_interval(Duration::from_secs(60)) // This is set to aid debugging by not cluttering the log space
         .validation_mode(gossipsub::ValidationMode::Strict) // This sets the kind of message validation. The default is Strict (enforce message signing)
+        .max_transmit_size(8192)
         .message_id_fn(message_id_fn) // content-address messages. No two messages of the same content will be propagated.
         .build()
         .expect("Valid config");
@@ -146,6 +149,27 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Kick it off
     loop {
         tokio::select! {
+
+            _ = bootstrap_interval.tick() => {
+                if let Err(err) = swarm.behaviour_mut().kad.bootstrap() {
+                    println!("Error bootstrapping Kademlia: {:?}", err);
+                };
+                // loop {
+                //     tokio::select! {
+                //         event = swarm.select_next_some() => match event {
+                //             SwarmEvent::Behaviour(MyBehaviourEvent::Gossipsub(gossipsub::Event::Message {
+                //                 propagation_source: peer_id,
+                //                 message_id: id,
+                //                 message,
+                //             })) => println!(
+                //                     "Got message: '{}' with id: {id} from peer: {peer_id}",
+                //                     String::from_utf8_lossy(&message.data),
+                //                 ),
+                //             _ => {}
+                //         }
+                //     }
+                // }
+            },
             event = swarm.select_next_some() => match event {
 
                 SwarmEvent::Dialing{peer_id, connection_id} => {
